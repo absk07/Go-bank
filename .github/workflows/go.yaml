@@ -21,6 +21,8 @@ jobs:
           POSTGRES_USER: root
           POSTGRES_PASSWORD: password
           POSTGRES_DB: go-bank
+        ports:
+          - 3000:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
