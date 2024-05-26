@@ -17,7 +17,7 @@ func main() {
 	defer connPool.Close()
 
 	var msg string
-	err = connPool.QueryRow(context.Background(), "select 'Database successfully connected").Scan(&msg)
+	err = connPool.QueryRow(context.Background(), "SELECT 'Database successfully connected'").Scan(&msg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
 		os.Exit(1)
