@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/absk07/Go-Bank/api"
+	db "github.com/absk07/Go-Bank/db/sqlc"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -16,6 +18,8 @@ func main() {
 	}
 	defer connPool.Close()
 
+	store := db.NewStore(connPool)
+
 	var msg string
 	err = connPool.QueryRow(context.Background(), "SELECT 'Database successfully connected'").Scan(&msg)
 	if err != nil {
@@ -23,4 +27,11 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println(msg)
+	
+	server := api.NewServer(store)
+
+	err = server.Start(":8080")
+	if err != nil {
+		log.Fatal("cannot start server:", err)
+	}
 }
