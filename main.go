@@ -8,11 +8,16 @@ import (
 
 	"github.com/absk07/Go-Bank/api"
 	db "github.com/absk07/Go-Bank/db/sqlc"
+	"github.com/absk07/Go-Bank/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
-	connPool, err := pgxpool.New(context.Background(), "postgresql://root:password@localhost:3000/go-bank?sslmode=disable")
+	config, err := utils.LoadConfig()
+	if err != nil {
+		log.Fatal("Problem loading configs...")
+	}
+	connPool, err := pgxpool.New(context.Background(), config.DBUri)
 	if err != nil {
 		log.Fatal("cannot connect to db:", err)
 	}
@@ -30,7 +35,7 @@ func main() {
 	
 	server := api.NewServer(store)
 
-	err = server.Start(":8080")
+	err = server.Start(config.Port)
 	if err != nil {
 		log.Fatal("cannot start server:", err)
 	}
