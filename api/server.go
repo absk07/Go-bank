@@ -18,6 +18,7 @@ func NewServer(store *db.Store) *Server {
 	router.POST("/account/add", server.createAccount)
 	router.GET("/accounts", server.getAccounts)
 	router.GET("/account/:id", server.getAccountById)
+	router.POST("/transfer/add", server.createTransfer)
 
 	server.router = router
 	return server
