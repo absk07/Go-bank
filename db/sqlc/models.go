@@ -30,3 +30,12 @@ type Transfer struct {
 	Amount        int64              `json:"amount"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
+
+type User struct {
+	Username          string             `json:"username"`
+	Password          string             `json:"password"`
+	Fullname          string             `json:"fullname"`
+	Email             string             `json:"email"`
+	PasswordChangedAt pgtype.Timestamptz `json:"password_changed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
