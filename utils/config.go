@@ -8,6 +8,7 @@ type Config struct {
 	DBDriver string `mapstructure:"DB_DRIVER"`
 	DBUri    string `mapstructure:"DB_URI"`
 	Port     string `mapstructure:"PORT"`
+	Secret string `mapstructure:"SECRET"`
 }
 
 func LoadConfig() (config Config, err error) {
