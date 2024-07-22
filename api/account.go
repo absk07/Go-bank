@@ -10,7 +10,7 @@ import (
 )
 
 type createAccountReq struct {
-	Owner    string `json:"owner" binding:"required"`
+	// Owner    string `json:"owner" binding:"required"`
 	Currency string `json:"currency" binding:"required"`
 }
 
@@ -20,8 +20,9 @@ func (server *Server) createAccount(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, helpers.ErrorResponse(err))
 		return
 	}
+	current_user := ctx.GetString("username")
 	args := db.CreateAccountParams{
-		Owner:    req.Owner,
+		Owner:    current_user,
 		Currency: req.Currency,
 		Balance:  0,
 	}
@@ -55,6 +56,14 @@ func (server *Server) getAccountById(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
 		return
 	}
+	current_user := ctx.GetString("username")
+	if account.Owner != current_user{
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Account does'nt belong to authenticated user!",
+		})
+		return
+	}
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    account,
@@ -73,7 +82,9 @@ func (server *Server) getAccounts(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, helpers.ErrorResponse(err))
 		return
 	}
+	current_user := ctx.GetString("username")
 	args := db.ListAccountParams{
+		Owner: current_user,
 		Limit: req.Size,
 		Offset: (req.Page - 1) * req.Size,
 	}

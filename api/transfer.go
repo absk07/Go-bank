@@ -23,10 +23,20 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, helpers.ErrorResponse(err))
 		return
 	}
-	if !server.validAccount(ctx, req.FromAccountId, req.Currency) {
+	fromAccount, valid := server.validAccount(ctx, req.FromAccountId, req.Currency)
+	if !valid {
 		return
 	}
-	if !server.validAccount(ctx, req.ToAccountId, req.Currency) {
+	current_user := ctx.GetString("username")
+	if fromAccount.Owner != current_user {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Account does'nt belong to authenticated user!",
+		})
+		return
+	}
+	_, valid = server.validAccount(ctx, req.ToAccountId, req.Currency)
+	if !valid {
 		return
 	}
 	args := db.TransferTxParams{
@@ -45,20 +55,20 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 	})
 }
 
-func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string) bool {
+func (server *Server) validAccount(ctx *gin.Context, accountID int64, currency string) (db.Account, bool) {
 	account, err := server.store.GetAccount(ctx, accountID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, helpers.ErrorResponse(err))
-			return false
+			return account, false
 		}
 		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
-		return false
+		return account, false
 	}
 	if account.Currency != currency {
 		err := fmt.Errorf("account [%d] currency mismatch: %s vs %s", account.ID, account.Currency, currency)
 		ctx.JSON(http.StatusBadRequest, helpers.ErrorResponse(err))
-		return false
+		return account, false
 	}
-	return true
+	return account, true
 }
