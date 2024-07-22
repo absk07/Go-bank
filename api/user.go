@@ -2,7 +2,6 @@ package api
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	db "github.com/absk07/Go-Bank/db/sqlc"
@@ -75,7 +74,6 @@ func (server *Server) login(ctx *gin.Context) {
 		return
 	}
 	IsPasswordValid := utils.IsPasswordValid(req.Password, user.Password)
-	fmt.Print("body-", req.Password, "user-", user.Password)
 	if !IsPasswordValid {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
 			"error": true,
