@@ -17,7 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Problem loading configs...")
 	}
-	connPool, err := pgxpool.New(context.Background(), config.DBUri)
+	connPool, err := pgxpool.New(context.Background(), config.DBSource)
 	if err != nil {
 		log.Fatal("cannot connect to db:", err)
 	}
@@ -32,7 +32,7 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println(msg)
-	
+
 	server := api.NewServer(store)
 
 	err = server.Start(config.Port)

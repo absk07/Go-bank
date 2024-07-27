@@ -6,7 +6,7 @@ import (
 
 type Config struct {
 	DBDriver string `mapstructure:"DB_DRIVER"`
-	DBUri    string `mapstructure:"DB_URI"`
+	DBSource    string `mapstructure:"DB_SOURCE"`
 	Port     string `mapstructure:"PORT"`
 	Secret string `mapstructure:"SECRET"`
 }
