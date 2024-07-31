@@ -15,13 +15,13 @@ services:
       - "8080:8080"
       - "9090:9090"
     environment:
-      - DB_SOURCE=postgresql://root:password@postgres:5432/go-bank?sslmode=disable
+      - DB_SOURCE=postgresql://root:password@go-bank-postgres-1:5432/go-bank?sslmode=disable
     depends_on:
       - postgres
     entrypoint:
       [
         "/app/wait-for.sh",
-        "postgres:5432",
+        "go-bank-postgres-1:5432",
         "--",
         "/app/start.sh"
       ]
