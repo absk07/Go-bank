@@ -29,7 +29,7 @@ func main() {
 	err = connPool.QueryRow(context.Background(), "SELECT 'Database successfully connected'").Scan(&msg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
-		os.Exit(1)
+		// os.Exit(1)
 	}
 	fmt.Println(msg)
 
