@@ -1,6 +1,8 @@
 package middlewares
 
 import (
+	// "fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -9,6 +11,10 @@ import (
 )
 
 func IsAuthenticated(ctx *gin.Context) {
+	config, err := utils.LoadConfig()
+	if err != nil {
+		log.Fatal("Problem loading configs...")
+	}
 	auth_header := ctx.Request.Header.Get("Authorization")
 	fields := strings.Fields(auth_header)
 	if len(fields) < 2 {
@@ -29,15 +35,16 @@ func IsAuthenticated(ctx *gin.Context) {
 	if token == "" {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"error":   "User Unauthenticated!",
+			"error":   "1 User Unauthenticated!",
 		})
 		return
 	}
-	username, err := utils.VerifyToken(token)
+	username, err := utils.VerifyToken(token, config.Secret)
+	// fmt.Println(err)
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"error":   "User Unauthenticated!",
+			"error":   "2 User Unauthenticated!",
 		})
 		return
 	}

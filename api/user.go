@@ -8,6 +8,8 @@ import (
 	"github.com/absk07/Go-Bank/helpers"
 	"github.com/absk07/Go-Bank/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type createUserReq struct {
@@ -44,11 +46,11 @@ func (server *Server) register(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"username": user.Username,
-			"fullname": user.Fullname,
-			"email":    user.Email,
+			"username":            user.Username,
+			"fullname":            user.Fullname,
+			"email":               user.Email,
 			"password_changed_at": user.PasswordChangedAt,
-			"created_at": user.CreatedAt,
+			"created_at":          user.CreatedAt,
 		},
 	})
 }
@@ -76,13 +78,35 @@ func (server *Server) login(ctx *gin.Context) {
 	IsPasswordValid := utils.IsPasswordValid(req.Password, user.Password)
 	if !IsPasswordValid {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": true,
+			"error":   true,
 			"message": "invalid credentials",
 		})
 		return
 	}
-	var token string
-	token, err = utils.GenerateToken(user.Email, user.Username)
+	var token, refreshToken string
+	var token_expiration, refreshToken_expiration pgtype.Timestamptz
+	token, token_expiration, err = utils.GenerateToken(user.Email, user.Username, server.config.TokenDuration, server.config.Secret)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
+		return
+	}
+	refreshToken, refreshToken_expiration, err = utils.GenerateToken(user.Email, user.Username, server.config.RefereshTokenDuration, server.config.Secret)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
+		return
+	}
+	// fmt.Printf("refreshToken_expiration: %+v\n", refreshToken_expiration)	
+	SessionParams := db.CreateSessionParams{
+		ID:           uuid.New(),
+		Username:     user.Username,
+		RefreshToken: refreshToken,
+		UserAgent:    ctx.Request.UserAgent(),
+		ClientIp:     ctx.ClientIP(),
+		IsBlocked:    false,
+		ExpiresAt:    refreshToken_expiration,
+	}
+	session, err := server.store.CreateSession(ctx, SessionParams)
+	// fmt.Printf("sessionParams: %+v\n", SessionParams)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
 		return
@@ -90,12 +114,16 @@ func (server *Server) login(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"username": user.Username,
-			"fullname": user.Fullname,
-			"email":    user.Email,
-			"password_changed_at": user.PasswordChangedAt,
-			"created_at": user.CreatedAt,
-			"token": token,
+			"sessionID":                session.ID,
+			"username":                 user.Username,
+			"fullname":                 user.Fullname,
+			"email":                    user.Email,
+			"password_changed_at":      user.PasswordChangedAt,
+			"created_at":               user.CreatedAt,
+			"token":                    token,
+			"token_expires_at":         token_expiration.Time,
+			"refresh_token":            refreshToken,
+			"refresh_token_expires_at": refreshToken_expiration.Time,
 		},
 	})
 }
