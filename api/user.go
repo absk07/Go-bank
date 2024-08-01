@@ -84,20 +84,29 @@ func (server *Server) login(ctx *gin.Context) {
 		return
 	}
 	var token, refreshToken string
+	var refreshTokenId uuid.UUID
 	var token_expiration, refreshToken_expiration pgtype.Timestamptz
-	token, token_expiration, err = utils.GenerateToken(user.Email, user.Username, server.config.TokenDuration, server.config.Secret)
+	_, token, token_expiration, err = utils.GenerateToken(
+		user.Username, 
+		server.config.TokenDuration, 
+		server.config.Secret,
+	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
 		return
 	}
-	refreshToken, refreshToken_expiration, err = utils.GenerateToken(user.Email, user.Username, server.config.RefereshTokenDuration, server.config.Secret)
+	refreshTokenId, refreshToken, refreshToken_expiration, err = utils.GenerateToken(
+		user.Username, 
+		server.config.RefereshTokenDuration, 
+		server.config.Secret,
+	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
 		return
 	}
 	// fmt.Printf("refreshToken_expiration: %+v\n", refreshToken_expiration)	
 	SessionParams := db.CreateSessionParams{
-		ID:           uuid.New(),
+		ID:           refreshTokenId,
 		Username:     user.Username,
 		RefreshToken: refreshToken,
 		UserAgent:    ctx.Request.UserAgent(),
