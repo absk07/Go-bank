@@ -23,6 +23,7 @@ func NewServer(config utils.Config, store *db.Store) *Server {
 	// routes
 	router.POST("/users/register", server.register)
 	router.POST("/users/login", server.login)
+	router.POST("/tokens/renew_access", server.renewAccessToken)
 	router.POST("/account/add", middlewares.IsAuthenticated, server.createAccount)
 	router.GET("/accounts", middlewares.IsAuthenticated, server.getAccounts)
 	router.GET("/account/:id", middlewares.IsAuthenticated, server.getAccountById)

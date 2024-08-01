@@ -35,16 +35,16 @@ func IsAuthenticated(ctx *gin.Context) {
 	if token == "" {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"error":   "1 User Unauthenticated!",
+			"error":   "User Unauthenticated!",
 		})
 		return
 	}
-	username, err := utils.VerifyToken(token, config.Secret)
+	_, username, err := utils.VerifyToken(token, config.Secret)
 	// fmt.Println(err)
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"success": false,
-			"error":   "2 User Unauthenticated!",
+			"error":   "User Unauthenticated!",
 		})
 		return
 	}
