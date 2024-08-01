@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/absk07/Go-Bank/api"
 	db "github.com/absk07/Go-Bank/db/sqlc"
@@ -28,12 +27,12 @@ func main() {
 	var msg string
 	err = connPool.QueryRow(context.Background(), "SELECT 'Database successfully connected'").Scan(&msg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
+		log.Fatal("QueryRow failed:", err)
 		// os.Exit(1)
 	}
 	fmt.Println(msg)
 
-	server := api.NewServer(store)
+	server := api.NewServer(config, store)
 
 	err = server.Start(config.Port)
 	if err != nil {

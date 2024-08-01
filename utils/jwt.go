@@ -2,37 +2,36 @@ package utils
 
 import (
 	"errors"
-	"log"
+	// "fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func GenerateToken(email, username string) (string, error) {
-	config, err := LoadConfig()
-	if err != nil {
-		log.Fatal("Problem loading configs...")
+func GenerateToken(email string, username string, duration time.Duration, secret string) (string, pgtype.Timestamptz, error) {
+	expirationTime := pgtype.Timestamptz{
+		Time:  time.Now().Add(duration),
+		Valid: true,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email":  email,
+		"email":    email,
 		"username": username,
-		"exp":    time.Now().Add(time.Hour * 2).Unix(),
+		"exp":      expirationTime.Time.Unix(),
 	})
-	return token.SignedString([]byte(config.Secret))
+	accessToken, err := token.SignedString([]byte(secret))
+	return accessToken, expirationTime, err
 }
 
-func VerifyToken(token string) (string, error) {
-	config, err := LoadConfig()
-	if err != nil {
-		log.Fatal("Problem loading configs...")
-	}
+func VerifyToken(token, secret string) (string, error) {
 	parsedToken, err := jwt.Parse(token, func(tkn *jwt.Token) (any, error) {
 		_, isValidSigningMethod := tkn.Method.(*jwt.SigningMethodHMAC)
 		if !isValidSigningMethod {
 			return nil, errors.New("unexpected signing method")
 		}
-		return []byte(config.Secret), nil
+		return []byte(secret), nil
 	})
+	// fmt.Println("parsedToken", parsedToken)
 	if err != nil {
 		return "", errors.New("could not parse token")
 	}

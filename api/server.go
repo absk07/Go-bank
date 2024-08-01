@@ -3,16 +3,21 @@ package api
 import (
 	db "github.com/absk07/Go-Bank/db/sqlc"
 	"github.com/absk07/Go-Bank/middlewares"
+	"github.com/absk07/Go-Bank/utils"
 	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
+	config utils.Config
 	store *db.Store
 	router *gin.Engine
 }
 
-func NewServer(store *db.Store) *Server {
-	server := &Server{store: store}
+func NewServer(config utils.Config, store *db.Store) *Server {
+	server := &Server{
+		config: config,
+		store: store,
+	}
 	router := gin.Default()
 
 	// routes
