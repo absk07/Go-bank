@@ -1,4 +1,4 @@
-package api
+package rest_api
 
 import (
 	db "github.com/absk07/Go-Bank/db/sqlc"

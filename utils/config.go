@@ -9,7 +9,8 @@ import (
 type Config struct {
 	DBDriver              string        `mapstructure:"DB_DRIVER"`
 	DBSource              string        `mapstructure:"DB_SOURCE"`
-	Port                  string        `mapstructure:"PORT"`
+	HTTP_Port             string        `mapstructure:"HTTP_PORT"`
+	GRPC_Port             string        `mapstructure:"GRPC_PORT"`
 	Secret                string        `mapstructure:"SECRET"`
 	TokenDuration         time.Duration `mapstructure:"TOKEN_DURATION"`
 	RefereshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`

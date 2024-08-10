@@ -1,4 +1,4 @@
-package api
+package rest_api
 
 import (
 	"database/sql"
@@ -87,8 +87,8 @@ func (server *Server) login(ctx *gin.Context) {
 	var refreshTokenId uuid.UUID
 	var token_expiration, refreshToken_expiration pgtype.Timestamptz
 	_, token, token_expiration, err = utils.GenerateToken(
-		user.Username, 
-		server.config.TokenDuration, 
+		user.Username,
+		server.config.TokenDuration,
 		server.config.Secret,
 	)
 	if err != nil {
@@ -96,15 +96,15 @@ func (server *Server) login(ctx *gin.Context) {
 		return
 	}
 	refreshTokenId, refreshToken, refreshToken_expiration, err = utils.GenerateToken(
-		user.Username, 
-		server.config.RefereshTokenDuration, 
+		user.Username,
+		server.config.RefereshTokenDuration,
 		server.config.Secret,
 	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, helpers.ErrorResponse(err))
 		return
 	}
-	// fmt.Printf("refreshToken_expiration: %+v\n", refreshToken_expiration)	
+	// fmt.Printf("refreshToken_expiration: %+v\n", refreshToken_expiration)
 	SessionParams := db.CreateSessionParams{
 		ID:           refreshTokenId,
 		Username:     user.Username,
