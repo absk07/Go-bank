@@ -21,13 +21,13 @@ func NewServer(config utils.Config, store *db.Store) *Server {
 	router := gin.Default()
 
 	// routes
-	router.POST("/users/register", server.register)
-	router.POST("/users/login", server.login)
-	router.POST("/tokens/renew_access", server.renewAccessToken)
-	router.POST("/account/add", middlewares.IsAuthenticated, server.createAccount)
-	router.GET("/accounts", middlewares.IsAuthenticated, server.getAccounts)
-	router.GET("/account/:id", middlewares.IsAuthenticated, server.getAccountById)
-	router.POST("/transfer/add", middlewares.IsAuthenticated, server.createTransfer)
+	router.POST("/v1/register", server.register)
+	router.POST("/v1/login", server.login)
+	router.POST("/v1/tokens/renew_access", server.renewAccessToken)
+	router.POST("/v1/account/add", middlewares.IsAuthenticated, server.createAccount)
+	router.GET("/v1/accounts", middlewares.IsAuthenticated, server.getAccounts)
+	router.GET("/v1/account/:id", middlewares.IsAuthenticated, server.getAccountById)
+	router.POST("/v1/transfer/add", middlewares.IsAuthenticated, server.createTransfer)
 
 	server.router = router
 	return server
