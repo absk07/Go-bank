@@ -58,7 +58,7 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 			"message": "Expired session!",
 		})
 	}
-	_, refreshToken, refreshToken_expiration, err := utils.GenerateToken(
+	_, token, token_expiration, err := utils.GenerateToken(
 		username, 
 		server.config.RefereshTokenDuration, 
 		server.config.Secret,
@@ -70,8 +70,8 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"token":            refreshToken,
-			"token_expires_at": refreshToken_expiration.Time,
+			"token":            token,
+			"token_expires_at": token_expiration.Time,
 		},
 	})
 }
