@@ -60,7 +60,7 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 	}
 	_, token, token_expiration, err := utils.GenerateToken(
 		username, 
-		server.config.RefereshTokenDuration, 
+		server.config.TokenDuration, 
 		server.config.Secret,
 	)
 	if err != nil {
