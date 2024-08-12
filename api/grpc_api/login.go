@@ -44,15 +44,15 @@ func (server *Server) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (
 	)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create refresh token: %s", err)
-
 	}
-	// fmt.Printf("refreshToken_expiration: %+v\n", refreshToken_expiration)
+
+	mtdt := server.extractMetadata(ctx)
 	SessionParams := db.CreateSessionParams{
 		ID:           refreshTokenId,
 		Username:     user.Username,
 		RefreshToken: refreshToken,
-		UserAgent:    "",
-		ClientIp:     "",
+		UserAgent:    mtdt.UserAgent,
+		ClientIp:     mtdt.ClientIP,
 		IsBlocked:    false,
 		ExpiresAt:    refreshToken_expiration,
 	}
