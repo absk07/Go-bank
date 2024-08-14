@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -12,6 +11,9 @@ import (
 	db "github.com/absk07/Go-Bank/db/sqlc"
 	"github.com/absk07/Go-Bank/pb"
 	"github.com/absk07/Go-Bank/utils"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
@@ -30,6 +32,8 @@ func main() {
 	}
 	defer connPool.Close()
 
+	runDBMigration(config.DBMigrationURL, config.DBSource)
+
 	store := db.NewStore(connPool)
 
 	var msg string
@@ -38,11 +42,22 @@ func main() {
 		log.Fatal("QueryRow failed:", err)
 		// os.Exit(1)
 	}
-	fmt.Println(msg)
+	log.Println(msg)
 
 	// runGinServer(config, store)
 	go runGatewayServer(config, store)
 	runGrpcServer(config, store)
+}
+
+func runDBMigration(migrationURL string, dbSource string) {
+	migration, err := migrate.New(migrationURL, dbSource)
+	if err != nil {
+		log.Fatal("cannot create new migrate instance: ", err)
+	}
+	if err = migration.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatal("failed to run migrate up: ", err)
+	}
+	log.Println("DB migrated successfully")
 }
 
 func runGrpcServer(config utils.Config, store *db.Store) {

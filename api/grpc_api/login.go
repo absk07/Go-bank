@@ -5,16 +5,23 @@ import (
 	"database/sql"
 
 	db "github.com/absk07/Go-Bank/db/sqlc"
+	"github.com/absk07/Go-Bank/helpers"
 	"github.com/absk07/Go-Bank/pb"
 	"github.com/absk07/Go-Bank/utils"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (server *Server) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (*pb.LoginUserResponse, error) {
+	violations := validateLoginUserRequest(req)
+	if violations != nil {
+		return nil, helpers.InvalidArgumentError(violations)
+	}
+
 	user, err := server.store.GetUser(ctx, req.GetUsername())
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -75,4 +82,14 @@ func (server *Server) LoginUser(ctx context.Context, req *pb.LoginUserRequest) (
 		AccessTokenExpiresAt:  timestamppb.New(token_expiration.Time),
 		RefreshTokenExpiresAt: timestamppb.New(refreshToken_expiration.Time),
 	}, nil
+}
+
+func validateLoginUserRequest(req *pb.LoginUserRequest) (violations []*errdetails.BadRequest_FieldViolation) {
+	if err := utils.ValidateUsername(req.GetUsername()); err != nil {
+		violations = append(violations, helpers.FieldViolation("username", err))
+	}
+	if err := utils.ValidatePassword(req.GetPassword()); err != nil {
+		violations = append(violations, helpers.FieldViolation("password", err))
+	}
+	return violations
 }

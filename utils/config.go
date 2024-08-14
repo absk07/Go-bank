@@ -9,6 +9,7 @@ import (
 type Config struct {
 	DBDriver              string        `mapstructure:"DB_DRIVER"`
 	DBSource              string        `mapstructure:"DB_SOURCE"`
+	DBMigrationURL        string        `mapstructure:"DB_MIGRATION_URL"`
 	HTTP_Port             string        `mapstructure:"HTTP_PORT"`
 	GRPC_Port             string        `mapstructure:"GRPC_PORT"`
 	Secret                string        `mapstructure:"SECRET"`
