@@ -11,10 +11,12 @@ import (
 	db "github.com/absk07/Go-Bank/db/sqlc"
 	"github.com/absk07/Go-Bank/pb"
 	"github.com/absk07/Go-Bank/utils"
+	"github.com/absk07/Go-Bank/worker"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -43,6 +45,12 @@ func main() {
 
 	store := db.NewStore(connPool)
 
+	redisOpt := asynq.RedisClientOpt{
+		Addr: config.Redis_Port,
+	}
+
+	taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
+
 	var msg string
 	err = connPool.QueryRow(context.Background(), "SELECT 'Database successfully connected'").Scan(&msg)
 	if err != nil {
@@ -52,8 +60,9 @@ func main() {
 	log.Print(msg)
 
 	// runGinServer(config, store)
-	go runGatewayServer(config, store)
-	runGrpcServer(config, store)
+	go runTaskProcessor(redisOpt, store)
+	go runGatewayServer(config, store, taskDistributor)
+	runGrpcServer(config, store, taskDistributor)
 }
 
 func runDBMigration(migrationURL string, dbSource string) {
@@ -67,8 +76,19 @@ func runDBMigration(migrationURL string, dbSource string) {
 	log.Print("DB migrated successfully")
 }
 
-func runGrpcServer(config utils.Config, store *db.Store) {
-	server := grpc_api.NewServer(config, store)
+func runTaskProcessor(redisOpt asynq.RedisClientOpt, store *db.Store) {
+	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store)
+
+	log.Info().Msg("starting task processor")
+
+	err := taskProcessor.Start()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to start task processor")
+	}
+}
+
+func runGrpcServer(config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
+	server := grpc_api.NewServer(config, store, taskDistributor)
 
 	grpcLogger := grpc.UnaryInterceptor(utils.GrpcLogger)
 
@@ -87,8 +107,8 @@ func runGrpcServer(config utils.Config, store *db.Store) {
 	}
 }
 
-func runGatewayServer(config utils.Config, store *db.Store) {
-	server := grpc_api.NewServer(config, store)
+func runGatewayServer(config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
+	server := grpc_api.NewServer(config, store, taskDistributor)
 	grpc_mux := runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
 			MarshalOptions: protojson.MarshalOptions{

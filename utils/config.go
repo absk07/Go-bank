@@ -13,6 +13,7 @@ type Config struct {
 	DBMigrationURL        string        `mapstructure:"DB_MIGRATION_URL"`
 	HTTP_Port             string        `mapstructure:"HTTP_PORT"`
 	GRPC_Port             string        `mapstructure:"GRPC_PORT"`
+	Redis_Port             string        `mapstructure:"REDIS_PORT"`
 	Secret                string        `mapstructure:"SECRET"`
 	TokenDuration         time.Duration `mapstructure:"TOKEN_DURATION"`
 	RefereshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`

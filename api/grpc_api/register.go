@@ -2,11 +2,14 @@ package grpc_api
 
 import (
 	"context"
+	"time"
 
 	db "github.com/absk07/Go-Bank/db/sqlc"
 	"github.com/absk07/Go-Bank/helpers"
 	"github.com/absk07/Go-Bank/pb"
 	"github.com/absk07/Go-Bank/utils"
+	"github.com/absk07/Go-Bank/worker"
+	"github.com/hibiken/asynq"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,6 +37,20 @@ func (server *Server) RegisterUser(ctx context.Context, req *pb.RegisterUserRequ
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "cannot register user: %s", err)
 	}
+
+	taskPayload := &worker.PayloadSendVerifyEmail{
+		Username: user.Username,
+	}
+	opts := []asynq.Option{
+		asynq.MaxRetry(10),
+		asynq.ProcessIn(10 * time.Second),
+		asynq.Queue(worker.QueueCrirical),
+	}
+	err = server.taskDistributor.DistributeTaskSendVerifyEmail(ctx, taskPayload, opts...)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to distribute task to send verify email: %s", err)
+	}
+
 	return &pb.RegisterUserResponse{
 		User: &pb.User{
 			Username:          user.Username,

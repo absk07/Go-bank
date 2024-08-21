@@ -34,4 +34,7 @@ proto:
 	--openapiv2_out=docs/swagger --openapiv2_opt=allow_merge=true \
     proto/*.proto
 
-.PHONY: postgres createdb dropdb migrateup migratedown migrateup1 migratedown1 sqlc server proto
+redis:
+	docker run --name redis -p 6379:6379 -d redis:7-alpine
+
+.PHONY: postgres createdb dropdb migrateup migratedown migrateup1 migratedown1 sqlc server proto redis
