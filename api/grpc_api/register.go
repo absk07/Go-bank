@@ -27,37 +27,37 @@ func (server *Server) RegisterUser(ctx context.Context, req *pb.RegisterUserRequ
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %s", err)
 	}
 
-	args := db.CreateUserParams{
-		Username: req.GetUsername(),
-		Password: hashedPassword,
-		Fullname: req.GetFullName(),
-		Email:    req.GetEmail(),
+	args := db.CreateUserTxParams{
+		CreateUserParams: db.CreateUserParams{
+			Username: req.GetUsername(),
+			Password: hashedPassword,
+			Fullname: req.GetFullName(),
+			Email:    req.GetEmail(),
+		},
+		AfterCreate: func(user db.User) error {
+			taskPayload := &worker.PayloadSendVerifyEmail{
+				Username: user.Username,
+			}
+			opts := []asynq.Option{
+				asynq.MaxRetry(10),
+				asynq.ProcessIn(10 * time.Second),
+				asynq.Queue(worker.QueueCrirical),
+			}
+			return server.taskDistributor.DistributeTaskSendVerifyEmail(ctx, taskPayload, opts...)
+		},
 	}
-	user, err := server.store.CreateUser(ctx, args)
+	txResult, err := server.store.CreateUserTx(ctx, args)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "cannot register user: %s", err)
 	}
 
-	taskPayload := &worker.PayloadSendVerifyEmail{
-		Username: user.Username,
-	}
-	opts := []asynq.Option{
-		asynq.MaxRetry(10),
-		asynq.ProcessIn(10 * time.Second),
-		asynq.Queue(worker.QueueCrirical),
-	}
-	err = server.taskDistributor.DistributeTaskSendVerifyEmail(ctx, taskPayload, opts...)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to distribute task to send verify email: %s", err)
-	}
-
 	return &pb.RegisterUserResponse{
 		User: &pb.User{
-			Username:          user.Username,
-			FullName:          user.Fullname,
-			Email:             user.Email,
-			PasswordChangedAt: timestamppb.New(user.PasswordChangedAt.Time),
-			CreatedAt:         timestamppb.New(user.CreatedAt.Time),
+			Username:          txResult.User.Username,
+			FullName:          txResult.User.Fullname,
+			Email:             txResult.User.Email,
+			PasswordChangedAt: timestamppb.New(txResult.User.PasswordChangedAt.Time),
+			CreatedAt:         timestamppb.New(txResult.User.CreatedAt.Time),
 		},
 	}, nil
 }
