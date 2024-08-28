@@ -60,7 +60,7 @@ func main() {
 	log.Print(msg)
 
 	// runGinServer(config, store)
-	go runTaskProcessor(redisOpt, store)
+	go runTaskProcessor(config, redisOpt, store)
 	go runGatewayServer(config, store, taskDistributor)
 	runGrpcServer(config, store, taskDistributor)
 }
@@ -76,8 +76,9 @@ func runDBMigration(migrationURL string, dbSource string) {
 	log.Print("DB migrated successfully")
 }
 
-func runTaskProcessor(redisOpt asynq.RedisClientOpt, store *db.Store) {
-	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store)
+func runTaskProcessor(config utils.Config, redisOpt asynq.RedisClientOpt, store *db.Store) {
+	mailer := utils.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
+	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store, mailer)
 
 	log.Info().Msg("starting task processor")
 

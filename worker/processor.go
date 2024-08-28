@@ -4,6 +4,7 @@ import (
 	"context"
 
 	db "github.com/absk07/Go-Bank/db/sqlc"
+	"github.com/absk07/Go-Bank/utils"
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
 )
@@ -22,9 +23,10 @@ type TaskProcessor interface {
 type RedisTaskProcessor struct {
 	server *asynq.Server
 	store *db.Store
+	mailer utils.EmailSender
 }
 
-func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, store *db.Store) TaskProcessor {
+func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, store *db.Store, mailer utils.EmailSender) TaskProcessor {
 	logger := NewLogger()
 
 	server := asynq.NewServer(
@@ -44,6 +46,7 @@ func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, store *db.Store) TaskP
 	return &RedisTaskProcessor{
 		server: server,
 		store: store,
+		mailer: mailer,
 	}
 }
 
