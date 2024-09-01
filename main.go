@@ -59,10 +59,10 @@ func main() {
 	}
 	log.Print(msg)
 
-	// runGinServer(config, store)
 	go runTaskProcessor(config, redisOpt, store)
-	go runGatewayServer(config, store, taskDistributor)
-	runGrpcServer(config, store, taskDistributor)
+	runGinServer(config, store, taskDistributor)
+	// go runGatewayServer(config, store, taskDistributor)
+	// runGrpcServer(config, store, taskDistributor)
 }
 
 func runDBMigration(migrationURL string, dbSource string) {
@@ -142,8 +142,8 @@ func runGatewayServer(config utils.Config, store *db.Store, taskDistributor work
 	}
 }
 
-func runGinServer(config utils.Config, store *db.Store) {
-	server := rest_api.NewServer(config, store)
+func runGinServer(config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
+	server := rest_api.NewServer(config, store, taskDistributor)
 
 	err := server.Start(config.HTTP_Port)
 	if err != nil {
