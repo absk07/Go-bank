@@ -25,7 +25,7 @@ type Entry struct {
 }
 
 type Session struct {
-	ID           uuid.UUID        `json:"id"`
+	ID           uuid.UUID          `json:"id"`
 	Username     string             `json:"username"`
 	RefreshToken string             `json:"refresh_token"`
 	UserAgent    string             `json:"user_agent"`

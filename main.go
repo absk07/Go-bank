@@ -60,9 +60,9 @@ func main() {
 	log.Print(msg)
 
 	go runTaskProcessor(config, redisOpt, store)
-	runGinServer(config, store, taskDistributor)
-	// go runGatewayServer(config, store, taskDistributor)
-	// runGrpcServer(config, store, taskDistributor)
+	// go runGinServer(config, store, taskDistributor)
+	go runGatewayServer(config, store, taskDistributor)
+	runGrpcServer(config, store, taskDistributor)
 }
 
 func runDBMigration(migrationURL string, dbSource string) {
