@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/absk07/Go-Bank/api/grpc_api"
 	"github.com/absk07/Go-Bank/api/rest_api"
@@ -20,10 +23,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/encoding/protojson"
 )
+
+var interruptSignals = []os.Signal{
+	os.Interrupt,
+	syscall.SIGTERM,
+	syscall.SIGINT,
+}
 
 func main() {
 	config, err := utils.LoadConfig()
@@ -35,7 +45,10 @@ func main() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 
-	connPool, err := pgxpool.New(context.Background(), config.DBSource)
+	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
+	defer stop()
+
+	connPool, err := pgxpool.New(ctx, config.DBSource)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot connect to db")
 	}
@@ -51,18 +64,25 @@ func main() {
 
 	taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
 
+	waitGroup, ctx := errgroup.WithContext(ctx)
+
 	var msg string
-	err = connPool.QueryRow(context.Background(), "SELECT 'Database successfully connected'").Scan(&msg)
+	err = connPool.QueryRow(ctx, "SELECT 'Database successfully connected'").Scan(&msg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("QueryRow failed")
 		// os.Exit(1)
 	}
 	log.Print(msg)
 
-	go runTaskProcessor(config, redisOpt, store)
-	// go runGinServer(config, store, taskDistributor)
-	go runGatewayServer(config, store, taskDistributor)
-	runGrpcServer(config, store, taskDistributor)
+	runTaskProcessor(ctx, waitGroup, config, redisOpt, store)
+	// runGinServer(config, store, taskDistributor)
+	runGatewayServer(ctx, waitGroup, config, store, taskDistributor)
+	runGrpcServer(ctx, waitGroup, config, store, taskDistributor)
+
+	err = waitGroup.Wait()
+	if err != nil {
+		log.Fatal().Err(err).Msg("error from wait group")
+	}
 }
 
 func runDBMigration(migrationURL string, dbSource string) {
@@ -76,7 +96,7 @@ func runDBMigration(migrationURL string, dbSource string) {
 	log.Print("DB migrated successfully")
 }
 
-func runTaskProcessor(config utils.Config, redisOpt asynq.RedisClientOpt, store *db.Store) {
+func runTaskProcessor(ctx context.Context, wg *errgroup.Group, config utils.Config, redisOpt asynq.RedisClientOpt, store *db.Store) {
 	mailer := utils.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
 	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store, mailer)
 
@@ -86,9 +106,19 @@ func runTaskProcessor(config utils.Config, redisOpt asynq.RedisClientOpt, store 
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to start task processor")
 	}
+
+	wg.Go(func() error {
+		<-ctx.Done()
+		log.Info().Msg("gracefully shutdown task processor")
+
+		taskProcessor.Shutdown()
+		log.Info().Msg("task processor is stopped")
+
+		return nil
+	})
 }
 
-func runGrpcServer(config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
+func runGrpcServer(ctx context.Context, wg *errgroup.Group, config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
 	server := grpc_api.NewServer(config, store, taskDistributor)
 
 	grpcLogger := grpc.UnaryInterceptor(utils.GrpcLogger)
@@ -101,14 +131,27 @@ func runGrpcServer(config utils.Config, store *db.Store, taskDistributor worker.
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot create listener")
 	}
-	log.Printf("starting gRPC server at %s", listener.Addr().String())
-	err = grpcServer.Serve(listener)
-	if err != nil {
-		log.Fatal().Err(err).Msg("cannot start grpc server")
-	}
+
+	wg.Go(func() error {
+		log.Printf("starting gRPC server at %s", listener.Addr().String())
+		err = grpcServer.Serve(listener)
+		if err != nil {
+			log.Error().Err(err).Msg("cannot start grpc server")
+			return err
+		}
+		return nil
+	})
+
+	wg.Go(func() error {
+		<-ctx.Done()
+		log.Info().Msg("gracefully shutdown gRPC server")
+		grpcServer.GracefulStop()
+		log.Info().Msg("gRPC server is stopped")
+		return nil
+	})
 }
 
-func runGatewayServer(config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
+func runGatewayServer(ctx context.Context, wg *errgroup.Group, config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
 	server := grpc_api.NewServer(config, store, taskDistributor)
 	grpc_mux := runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
@@ -120,8 +163,6 @@ func runGatewayServer(config utils.Config, store *db.Store, taskDistributor work
 			},
 		}),
 	)
-	ctx, cancle := context.WithCancel(context.Background())
-	defer cancle()
 
 	err := pb.RegisterGoBankHandlerServer(ctx, grpc_mux, server)
 	if err != nil {
@@ -130,16 +171,37 @@ func runGatewayServer(config utils.Config, store *db.Store, taskDistributor work
 	mux := http.NewServeMux()
 	mux.Handle("/", grpc_mux)
 
-	listener, err := net.Listen("tcp", config.HTTP_Port)
-	if err != nil {
-		log.Fatal().Err(err).Msg("cannot create listener")
+	httpServer := &http.Server{
+		Handler: utils.HttpLogger(mux),
+		Addr:    config.HTTP_Port,
 	}
-	log.Info().Msgf("starting HTTP gateway server at %s", listener.Addr().String())
-	handler := utils.HttpLogger(mux)
-	err = http.Serve(listener, handler)
-	if err != nil {
-		log.Fatal().Err(err).Msg("cannot start HTTP gateway server")
-	}
+
+	wg.Go(func() error {
+		log.Info().Msgf("start HTTP gateway server at %s", httpServer.Addr)
+		err = httpServer.ListenAndServe()
+		if err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			log.Error().Err(err).Msg("HTTP gateway server failed to serve")
+			return err
+		}
+		return nil
+	})
+
+	wg.Go(func() error {
+		<-ctx.Done()
+		log.Info().Msg("gracefully shutdown HTTP gateway server")
+
+		err := httpServer.Shutdown(context.Background())
+		if err != nil {
+			log.Error().Err(err).Msg("failed to shutdown HTTP gateway server")
+			return err
+		}
+
+		log.Info().Msg("HTTP gateway server is stopped")
+		return nil
+	})
 }
 
 func runGinServer(config utils.Config, store *db.Store, taskDistributor worker.TaskDistributor) {
@@ -147,6 +209,6 @@ func runGinServer(config utils.Config, store *db.Store, taskDistributor worker.T
 
 	err := server.Start(config.HTTP_Port)
 	if err != nil {
-		log.Fatal().Err(err).Msg("cannot start http server")
+		log.Fatal().Err(err).Msg("cannot start gin HTTP server")
 	}
 }
